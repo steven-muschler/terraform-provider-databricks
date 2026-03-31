@@ -118,7 +118,7 @@ func (c *DatabricksClient) GetWorkspaceClientForUnifiedProvider(
 	ctx context.Context, workspaceID string,
 ) (*databricks.WorkspaceClient, error) {
 	// The provider can be configured at account level or workspace level.
-	if c.Config.HostType() != config.WorkspaceHost {
+	if c.HostTypeForTerraform() != config.WorkspaceHost {
 		return c.getWorkspaceClientForAccountUnifiedHost(ctx, workspaceID)
 	}
 	return c.getWorkspaceClientForWorkspaceConfiguredProvider(ctx, workspaceID)
@@ -505,7 +505,7 @@ func IsAccountLevel(d *schema.ResourceData, c *DatabricksClient) bool {
 	case ApiLevelWorkspace:
 		return false
 	default:
-		return c.Config.HostType() == config.AccountHost
+		return c.HostTypeForTerraform() == config.AccountHost
 	}
 }
 
@@ -540,7 +540,7 @@ func (c *DatabricksClient) scimVisitorForLevel(apiLevel string) func(*http.Reque
 			// Explicit api field takes precedence over host-based inference
 			isAccount = apiLevel == ApiLevelAccount
 		} else {
-			isAccount = c.Config.HostType() == config.AccountHost
+			isAccount = c.HostTypeForTerraform() == config.AccountHost
 		}
 		if isAccount {
 			// until `/preview` is there for workspace scim,
@@ -564,6 +564,39 @@ func (c *DatabricksClient) Scim(ctx context.Context, method, path string, reques
 // HostTypeForTerraform() will return AccountHost regardless of the host URL.
 func (c *DatabricksClient) SetAccountTest() {
 	c.isAccountTest = true
+}
+
+// HostTypeForTerraform returns the type of host the provider is configured for.
+// This replicates the SDK's Config.HostType() logic so that the Terraform provider
+// can customize host type detection independently from the SDK in the future.
+func (c *DatabricksClient) HostTypeForTerraform() config.HostType {
+	if c.Config.Experimental_IsUnifiedHost {
+		return config.UnifiedHost
+	}
+
+	if c.isAccountTest {
+		return config.AccountHost
+	}
+
+	// Normalize the host to ensure the scheme is present before checking
+	// prefixes. Profiles saved without "https://" (e.g. from user input)
+	// would otherwise fail the prefix check and be misclassified as
+	// workspace hosts.
+	host := c.Config.Host
+	if host != "" && !strings.Contains(host, "://") {
+		host = "https://" + host
+	}
+	accountsPrefixes := []string{
+		"https://accounts.",
+		"https://accounts-dod.",
+	}
+	for _, prefix := range accountsPrefixes {
+		if strings.HasPrefix(host, prefix) {
+			return config.AccountHost
+		}
+	}
+
+	return config.WorkspaceHost
 }
 
 // IsAzure returns true if client is configured for Azure Databricks - either by using AAD auth or with host+token combination
