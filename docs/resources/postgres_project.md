@@ -37,6 +37,14 @@ Projects are the root of the Lakebase Autoscaling resource hierarchy:
 - **Environment separation**: Create distinct environments with their own configuration and resource limits
 
 
+~> **Important** Creating a project automatically creates a `production` branch with a read-write endpoint and a default database. The production branch's endpoint is created with `no_suspension = true` (always-on) by default. These auto-created resources are **not managed by Terraform** — to manage them, either import them into your state or configure them via the UI/API. To reference the auto-created production branch in other resources, use the `databricks_postgres_branch` data source:
+
+```hcl
+data "databricks_postgres_branch" "production" {
+  name = "${databricks_postgres_project.this.name}/branches/production"
+}
+```
+
 ## Example Usage
 ### Basic Project Creation
 

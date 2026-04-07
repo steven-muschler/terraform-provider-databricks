@@ -8,6 +8,34 @@ subcategory: "Postgres"
 
 ## Example Usage
 
+### Basic Database Creation
+
+```hcl
+resource "databricks_postgres_database" "app_db" {
+  parent      = databricks_postgres_branch.production.name
+  database_id = "my-app-db"
+
+  spec = {
+    postgres_database = "my_app_db"
+  }
+}
+```
+
+### Database with Explicit Owner
+
+```hcl
+resource "databricks_postgres_database" "analytics_db" {
+  parent      = databricks_postgres_branch.dev.name
+  database_id = "analytics"
+
+  spec = {
+    postgres_database = "analytics"
+    role              = databricks_postgres_role.my_admin_role.name
+  }
+}
+```
+
+-> **Note** Every Lakebase project automatically creates a `production` branch and a default database. If you only need one database on the production branch, you may not need to create an additional `databricks_postgres_database` resource.
 
 ## Arguments
 The following arguments are supported:
